@@ -5,7 +5,7 @@ from telegram import Bot
 from datetime import datetime, timezone
 
 # ===== CONFIGURACIÓN =====
-openai.api_key = os.getenv("OPENAI_API_KEY")
+openai.api_key = os.getenv("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")
 TELEGRAM_TOKEN = os.getenv("8388545388:AAFphIeJ04XDvgWiwbKjaHqRPpyHPzTmtlU")
 CHAT_ID = os.getenv("7743163483")
 
@@ -50,3 +50,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
