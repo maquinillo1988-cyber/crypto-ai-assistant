@@ -1,53 +1,73 @@
-import os
 import requests
-import openai
+import matplotlib.pyplot as plt
+import numpy as np
+import io
+from datetime import datetime, timedelta
 from telegram import Bot
-from datetime import datetime, timezone
 
-# ===== CONFIGURACIÓN =====
-openai.api_key = os.getenv("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")
-TELEGRAM_TOKEN = os.getenv("8388545388:AAFphIeJ04XDvgWiwbKjaHqRPpyHPzTmtlU")
-CHAT_ID = os.getenv("7743163483")
+# --- CONFIGURACIÓN DEL BOT ---
+TELEGRAM_TOKEN = "8388545388:AAFphIeJ04XDvgWiwbKjaHqRPpyHPzTmtlU"        # reemplaza con tu token
+CHAT_ID = "7743163483"                  # reemplaza con el ID de tu grupo o chat
 
 bot = Bot(token=TELEGRAM_TOKEN)
 
-def obtener_precio(symbol="BTCUSDT"):
-    """Obtiene el precio actual de Binance"""
-    url = f"https://api.binance.com/api/v3/ticker/price?symbol={symbol}"
-    resp = requests.get(url)
-    data = resp.json()
-    return float(data["price"])
-
-def analizar_tendencia(precios):
-    """Usa ChatGPT para analizar la tendencia del mercado"""
-    prompt = f"""
-    Tengo los siguientes precios recientes de Bitcoin (en USD): {precios}.
-    Analiza brevemente si el precio parece estar subiendo, bajando o estable,
-    y da una predicción a corto plazo (por ejemplo, para la próxima hora),
-    explicando tu razonamiento.
-    """
-    response = openai.ChatCompletion.create(
-        model="gpt-4o-mini",
-        messages=[{"role": "user", "content": prompt}],
-        temperature=0.6
-    )
-    return response.choices[0].message["content"]
-
-def enviar_mensaje(texto):
-    """Envía un mensaje al chat de Telegram"""
-    bot.send_message(chat_id=CHAT_ID, text=texto)
-
-def main():
+# Función para obtener precios de criptomonedas
+def obtener_precios():
+    """Obtiene precios actuales de Bitcoin y Ethereum desde CoinGecko"""
+    url = "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum&vs_currencies=usd"
     try:
-        precios = [obtener_precio() for _ in range(3)]  # tres lecturas rápidas
-        analisis = analizar_tendencia(precios)
-        mensaje = f"📊 Análisis de BTC/USD ({datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}):\n\n{analisis}"
-        enviar_mensaje(mensaje)
-        print("✅ Mensaje enviado a Telegram.")
-    except Exception as e:
-        print("❌ Error:", e)
-        enviar_mensaje(f"⚠️ Error en el bot: {e}")
+        response = requests.get(url)
+        response.raise_for_status()  # Esto asegura que si hay un error HTTP, se lanzará una excepción
+        data = response.json()
 
-if __name__ == "__main__":
-    main()
+        # Verificar que los datos estén en el formato esperado
+        if 'bitcoin' in data and 'ethereum' in data:
+            btc = data['bitcoin']['usd']
+            eth = data['ethereum']['usd']
+            return btc, eth
+        else:
+            print("Error: Datos no encontrados en la respuesta de la API.")
+            return None, None
+
+    except requests.exceptions.RequestException as e:
+        print(f"Error al realizar la solicitud: {e}")
+        return None, None
+
+# Función para generar un gráfico de precios
+def generar_grafico():
+    """Genera un gráfico de precios de las criptomonedas"""
+    btc, eth = obtener_precios()
+
+    # Verificar que obtuvimos los precios correctamente
+    if btc is None or eth is None:
+        print("Error al obtener los precios de las criptomonedas.")
+        return None
+
+    # Simulación de datos para el gráfico (últimos 10 minutos)
+    tiempos = [datetime.now() - timedelta(minutes=i) for i in range(10)]
+    bitcoin_prices = np.random.uniform(low=btc-500, high=btc+500, size=10)  # Generación de precios simulados
+    ethereum_prices = np.random.uniform(low=eth-50, high=eth+50, size=10)  # Generación de precios simulados
+
+    # Crear el gráfico
+    fig, ax = plt.subplots()
+    ax.plot(tiempos, bitcoin_prices, label="Bitcoin", color='blue')
+    ax.plot(tiempos, ethereum_prices, label="Ethereum", color='green')
+
+    ax.set(xlabel='Tiempo', ylabel='Precio en USD',
+           title='Estado del mercado de criptomonedas')
+    ax.grid()
+    ax.legend()
+
+    # Guardar el gráfico en un objeto de bytes para enviarlo por Telegram
+    buf = io.BytesIO()
+    plt.savefig(buf, format='png')
+    buf.seek(0)
+    return buf
+
+# Llamada a la función para generar el gráfico
+grafico = generar_grafico()
+if grafico:
+    # Aquí podrías agregar el código para enviar el gráfico por Telegram si lo necesitas
+    pass
+
 
